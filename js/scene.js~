@@ -1,0 +1,1729 @@
+var scene, camera, renderer;  // THREE.js rendering basics.
+var controls;
+
+var canvas;  // The canvas on which the image is rendered.
+
+var parameters;
+
+var gui;
+
+var game = {
+  status: "paused",
+  clock: new THREE.Clock(),
+  oldTime: 0,
+  newTime: 0,
+  studentHealth: 100,
+  tick: 3,
+  houseCount: 2,
+  xPosArray: [-125, -50, 50, 125],
+  xPosArraySnowbank: [-125, 125],
+  jacketProb: 0.1,
+  pizzaProb: 0.9,
+  snowbankProb: 0.5,
+  maxSnowbanks: 30,
+  maxSlices: 15,
+  maxJackets: 15,
+  cruiserProb: 0.33,
+  maxDistance: 60,
+  pCount:2000,
+  crackCount:40,
+  lampCount:8,
+  cruiserSpeed: 20
+}
+
+var body = {
+  left:0,
+  right:0,
+  bottom:0,
+  running: true,
+  jumping: false,
+  direction: "none",
+}
+
+
+var jacketHalt = false;
+var snowbankHalt = false;
+var sliceHalt = false;
+var timesCruiserChecked = 0;
+
+var studentJacketColor;
+var jacketColor;
+
+var leavingJug;
+var halfwayPoint;
+var lastSign;
+
+var particles;
+var cracks;
+var lamps;
+var houses;
+var taylorLake;
+
+var student = createStudent();
+var head = student.children[0];
+var core = student.children[1];
+var leftarm = student.children[2];
+var rightarm = student.children[3];
+var lefthand = student.children[4];
+var righthand = student.children[5];
+var leftleg = student.children[6];
+var rightleg = student.children[7];
+var leftfoot = student.children[8];
+var rightfoot = student.children[9];
+var runningCycle = 0;
+
+var cruiser1;
+var cruiser2;
+var snowbanks = [];
+var slices = [];
+var jackets = [];
+var sliceNum = 0;
+var jacketNum = 0;
+var snowbankNum = 0;
+
+var roadLength = 6000;
+
+var endPos = 50;
+var heightGoal = 100;
+var colors = {
+  yellow: 0xffff00,
+  grey:0xc0c0c0,
+  maroon:0x800000,
+  black:0x000000,
+  red:0xff0000,
+  yellow:0xffff00,
+  blue: 0x336EFF,
+  purple: 0xB400FF,
+  ground: 0x2a2a2a,
+  sidewalk: 0x707070,
+  grass: 0x155426,
+  roadLine: 0xf5c242,
+  white: 0xffffff,
+  glass: 0xf5de2f,
+  lamp: 0x7a7979,
+  houseYellow: 0x645E00,
+  houseGrey: 0x303030,
+  houseBrown: 0x573434,
+  houseBlue: 0x003172,
+
+}
+var materials = {
+  black: new THREE.MeshPhongMaterial({ color: colors.black, specular: 0x101010, shininess:16}),
+  white: new THREE.MeshPhongMaterial({ color: colors.white, specular: 0x101010, shininess:16}),
+  red: new THREE.MeshPhongMaterial({ color: colors.red, specular: 0x101010, shininess:16}),
+  yellow: new THREE.MeshPhongMaterial({ color: colors.yellow, specular: 0x101010, shininess:16}),
+  blue: new THREE.MeshPhongMaterial({ color: colors.blue, specular: 0x101010, shininess:16}),
+  purple: new THREE.MeshPhongMaterial({ color: colors.purple, specular: 0x101010, shininess:16}),
+  grey: new THREE.MeshPhongMaterial({ color: colors.grey, specular: 0x101010, shininess:16}),
+  houseYellow: new THREE.MeshPhongMaterial({color: colors.houseYellow, specular: 0x101010, shininess: 16}),
+  houseGrey: new THREE.MeshPhongMaterial({color: colors.houseGrey, specular: 0x101010, shininess: 16}),
+  houseBrown: new THREE.MeshPhongMaterial({color: colors.houseBrown, specular: 0x101010, shininess: 16}),
+  houseBlue: new THREE.MeshPhongMaterial({color: colors.houseBlue, specular: 0x101010, shininess: 16}),
+
+}
+
+var jacketMaterials = [materials.red, materials.yellow, materials.blue, materials.purple, materials.grey];
+
+var coloRand = Math.floor(Math.random() * 5);
+
+jacketColor = jacketMaterials[coloRand];
+studentJacketColor = jacketColor;
+
+function radians( degrees ) {
+return degrees * Math.PI / 180.0;
+}
+
+function rotateObject(object,x,y,z){
+  object.rotation.x = x;
+  object.rotation.y = y;
+  object.rotation.z = z;
+}
+
+function scaleObject(object,x,y,z){
+  object.scale.x = x;
+  object.scale.y = y;
+  object.scale.z = z;
+}
+
+
+
+/*  Create the scene graph.  This function is called once, as soon as the page loads.
+*  The renderer has already been created before this function is called.
+*/
+function createScene() {
+   // Set background color.
+   renderer.setClearColor( 0xBBBBBB );
+   scene = new THREE.Scene();
+
+   // create a camera, sitting on the positive z-axis.  The camera is not part of the scene.
+   camera = new THREE.PerspectiveCamera(45, canvas.width/canvas.height, 1, 10000);
+   camera.position.set(0,100,400);
+   camera.lookAt(new THREE.Vector3(0, 1000, -10000 ));
+   window.camera = camera;
+
+   controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+   gui = new dat.GUI();
+   parameters = {
+     difficulty: "Flurries",
+     restart: function() {resetGame(parameters.difficulty)}
+   };
+
+   var difficulty = gui.add(parameters, 'difficulty', ['Flurries','Heavy Snowfall', 'Blizzard']).name('Difficulty').listen();
+   difficulty.onChange(function(value){
+     resetGame(value);
+     parameters.difficulty = value;
+   });
+
+   gui.add( parameters, 'restart' ).name("Restart Game");
+
+
+   // dim light shining from above
+   scene.add( new THREE.AmbientLight( 0xffffff, .4) );
+   // a light to shine in the direction the camera faces
+   var viewpointLight = new THREE.DirectionalLight( 0xffffff, 0.8 );
+   viewpointLight.position.set(0,0,1);  // shines down the z-axis
+   scene.add(viewpointLight);
+   scene.fog = new THREE.Fog(colors.black ,1, roadLength);
+
+   createSkyBox();
+   createGround();
+   createCracks();
+   createLamps();
+   createHouses();
+   createSnowfall()
+
+   student.position.set(50,30 ,0);
+   student.rotation.set(radians(90),0,0);
+   rotateObject(student,0,radians(180),0)
+   scaleObject(student,7,7,10);
+   scene.add(student);
+
+   var axleModel1 = createAxle();
+   cruiser1 = createCar(axleModel1);
+   rotateObject(cruiser1,0,radians(-90),0);
+   scaleObject(cruiser1,25,25,25);
+   cruiser1.position.set(-50,18,-6000);
+   cruiser1.width = 48;
+   cruiser1.length = 233;
+   cruiser1.height = 100;
+   cruiser1.driving = false;
+   scene.add(cruiser1);
+
+   var axleModel2 = createAxle();
+   cruiser2 = createCar(axleModel2);
+   cruiser2.width = 48;
+   cruiser2.length = 235;
+   cruiser2.height = 100;
+   cruiser2.driving = false;
+   rotateObject(cruiser2,0,radians(90),0);
+   scaleObject(cruiser2,25,25,25);
+   cruiser2.position.set(50,18,-6000);
+   scene.add(cruiser2);
+
+   for (var i = 0; i < game.maxJackets; i++){
+     var jacket = createJacket();
+     jacket.position.set(50,0,2000);
+     rotateObject(jacket,0,radians(45),0);
+     scaleObject(jacket,7,4,7);
+     jacket.width = 50;
+     jacket.length = 50;
+     jacket.height = 3;
+     jacket.checked= false;
+     jackets.push(jacket);
+     scene.add(jacket);
+   }
+
+   for (var i = 0; i < game.maxSlices; i++){
+     var slice = createSlice();
+     slice.position.set(-50,0,2000);
+     rotateObject(slice,radians(-90),0,radians(-45));
+     scaleObject(slice,10,10,10);
+     slice.width = 20;
+     slice.length = 20;
+     slice.height = 2;
+     slice.checked= false;
+     slices.push(slice);
+     if (i > game.maxSlices - 3){
+       slice.position.z = Math.random() * -6000;
+       slice.position.x = game.xPosArray[Math.floor(Math.random()*4)];
+       if (slice.position.x == Math.abs(125)){
+         slice.position.y = 6;
+       } else{
+         slice.position.y = 0;
+       }
+     }
+     scene.add(slice);
+   }
+
+   taylorLake = createLake();
+   taylorLake.position.set(-500,2 , -3000);
+   scaleObject(taylorLake, 85, 10, 35);
+   rotateObject(taylorLake,0,radians(-90),0);
+   scene.add(taylorLake);
+
+
+   leavingJug = createJugSign();
+   leavingJug.position.set(-275, 30 , -75);
+   scaleObject(leavingJug, 15, 10, 10);
+   scene.add(leavingJug);
+
+   halfwayPoint = createHalfway();
+   halfwayPoint.position.set(-275, 30 , -6000);
+   scaleObject(halfwayPoint, 15, 10, 10);
+   scene.add(halfwayPoint);
+
+   lastSign = createEndSign();
+   lastSign.position.set(-275, 30 , -6000);
+   scaleObject(lastSign, 15, 10, 10);
+   scene.add(lastSign);
+
+   var snowbankAngles = [0, 180]
+   var snowbankAnglesRand = snowbankAngles[Math.floor(Math.random() * 2)];
+   for (var i = 0; i < game.maxSnowbanks; i++){
+     var snowbank = createSnowbank();
+     var height = Math.floor(Math.random() * 10) + 5;
+     scaleObject(snowbank,5,height,10);
+     rotateObject(snowbank,0,radians(snowbankAnglesRand),0);
+     if (i < game.maxSnowbanks/2){
+       snowbank.position.set(-125,-height,1000);
+     } else{
+       snowbank.position.set(125,-height,1000);
+     }
+     snowbank.width = 40;
+     snowbank.length = 50;
+     snowbank.height = height;
+     snowbank.checked = false;
+     snowbanks.push(snowbank);
+     scene.add(snowbank);
+   }
+
+   //renderer.compile(scene, camera); ASK LATER
+   game.clock.start();
+   doFrame();
+}
+
+function handleKeyPress(e){
+  e = e.keyCode;
+  if (e == 80){ // p
+    if (game.status == "playing"){
+      game.status = "paused";
+    } else if (game.status == "paused"){
+      game.status = "playing";
+    }
+  }
+  if (e == 37){ //left arrow
+    if (body.running && !body.jumping){
+      direction = "left";
+      if (student.position.x == 50){
+        endPos -= 100;
+      } else if (student.position.x == -50 || student.position.x == 120){
+        endPos -= 70;
+      }
+    }
+  }
+  if (e == 39){ //right arrow
+    if (body.running && !body.jumping){
+      direction = "right";
+      if (student.position.x == -50 ){
+        endPos += 100;
+      } else if(student.position.x == 50 || student.position.x == -120){
+        endPos += 70;
+      }
+    }
+  }
+  if (e == 38){  //up Arrow
+    if (!body.jumping){
+      body.jumping = true;
+      heightGoal = 125;
+    }
+  }
+}
+
+function render() {
+   renderer.render(scene, camera);
+}
+
+function updateForFrame() {
+   //UPDATE THINGS HERE
+   if (game.status == "playing"){
+     if (body.running && !body.jumping){
+       animateStudent();
+     }
+     game.newTime = Math.floor(game.clock.getElapsedTime());
+     if (game.oldTime != game.newTime){ //second has passed
+       if (game.studentHealth < game.tick){
+         game.studentHealth = 0;
+       } else{
+         game.studentHealth -= game.tick; //subtract from health
+       }
+       game.oldTime = game.newTime;
+       snowbankHalt = false;
+       sliceHalt = false;
+       jacketHalt = false;
+       timesCruiserChecked = 0;
+     }
+     body.left = student.position.x - 23;
+     body.right = student.position.x + 23;
+     body.bottom = student.position.y - 30;
+
+     if (game.newTime > game.maxDistance){
+       console.log('PLAYER WON');
+       //display banner
+       game.status = "paused"
+     }
+     if (game.studentHealth <= 0){
+       console.log('PLAYER LOST');
+       //display banner
+       game.status = "paused";
+     }
+
+     if (game.newTime % 1 == 0 && snowbankHalt == false){
+       if(snowbankNum >= game.maxSnowbanks/2){
+         snowbankNum = 0;
+       }
+       snowbankHalt = true;
+       var leftSnowbank = snowbanks[snowbankNum];
+       var rightSnowbank = snowbanks[snowbankNum+game.maxSnowbanks/2];
+       var prob1 = Math.random();
+       var prob2 = Math.random();
+       if (prob1 < game.snowbankProb){
+         leftSnowbank.position.z = Math.random() *500 + -6000;
+         leftSnowbank.checked = false;
+       }
+       if (prob2 < game.snowbankProb){
+         rightSnowbank.position.z = Math.random() *500 + -6000;
+         rightSnowbank.checked = false;
+       }
+       snowbankNum ++;
+     }
+     if(game.newTime % 2 == 0 && sliceHalt == false){
+       if (sliceNum >= game.maxSlices){
+         sliceNum = 0;
+       }
+       sliceHalt = true;
+       slice = slices[sliceNum];
+       sliceProb = Math.random();
+       if (sliceProb < game.pizzaProb){
+         slice.checked = false;
+         slice.position.z = -6000;
+         slice.position.x = game.xPosArray[Math.floor(Math.random()*4)];
+         if (slice.position.x == Math.abs(125)){
+           slice.position.y = 6;
+         } else{
+           slice.position.y = 0;
+         }
+       }
+       sliceNum++;
+     }
+     if(game.newTime % 2 == 0 && jacketHalt == false){
+       if (jacketNum >= game.maxJackets){
+         jacketNum = 0;
+       }
+       jacketHalt = true;
+       jacket = jackets[jacketNum];
+       jacketProb = Math.random();
+       if (jacketProb < game.jacketProb){
+         jacket.checked = false;
+         jacket.position.z = -6000;
+         jacket.position.x = game.xPosArray[Math.floor(Math.random()*4)];
+         if (jacket.position.x == Math.abs(125)){
+           jacket.position.y = 3;
+         } else{
+           jacket.position.y = 0;
+         }
+       }
+       jacketNum++;
+     }
+     if (timesCruiserChecked == 0){
+       timesCruiserChecked = 1;
+       var prob3 = Math.random();
+       var prob4 = Math.random();
+       if (prob3 < game.cruiserProb && cruiser1.driving == false){
+         cruiser1.position.z = -6000;
+         cruiser1.driving = true;
+       }
+       if (prob4 < game.cruiserProb && cruiser2.driving == false){
+         cruiser2.position.z = 1000;
+         cruiser2.driving = true;
+       }
+     }
+     particles.children.forEach(p => {
+       p.position.add(p.velocity)
+       if (p.position.y < -2){
+         p.position.y = 300;
+       }
+       if (p.position.z > 500){
+         p.position.z = -1000;
+       }
+     });
+     cracks.children.forEach(p => {
+       p.position.add(p.velocity)
+       if (p.position.z > 500){
+         p.position.z = -roadLength + 500;
+       }
+     });
+     lamps.children.forEach(p => {
+       p.position.add(p.velocity)
+       if (p.position.z > 500){
+         p.position.z = -roadLength + 500;
+       }
+     });
+     houses.children.forEach(p => {
+       p.position.add(p.velocity)
+       if (p.position.z > 500){
+         p.position.z = -roadLength + 500;
+       }
+     });
+     if (student.position.x != endPos){
+       body.jumping = false;
+       if (student.position.x < endPos){
+         student.position.x += 5;
+       } else{
+         student.position.x -= 5;
+       }
+     }
+     if (cruiser1.position.z < 1000 && cruiser1.driving == true){
+       cruiser1.position.z+=game.cruiserSpeed;
+     }
+     if (cruiser1.position.z >= 1000){
+       cruiser1.driving = false;
+     }
+     if (cruiser2.position.z > -6000 && cruiser2.driving == true){
+       cruiser2.position.z-=game.cruiserSpeed/5;
+     }
+     if (cruiser2.position.z <= -6000){
+       cruiser2.driving = false;
+     }
+     for (var i = 0; i < game.maxSnowbanks; i++){
+       snowbank = snowbanks[i];
+       if (snowbank.position.z < 1000){
+         snowbank.position.z += 15;
+       }
+     }
+     for (var i = 0; i < game.maxSlices; i++){
+       var slice = slices[i];
+       if (slice.position.z < 1000){
+         slice.position.z += 15;
+       }
+     }
+     for (var i = 0; i < game.maxJackets; i++){
+       var jacket = jackets[i];
+       if (jacket.position.z < 1000){
+         jacket.position.z += 15;
+       }
+     }
+
+     if (taylorLake.position.z <1000){
+       taylorLake.position.z += 5;
+     }
+
+     if (body.jumping){
+       if (student.position.y < heightGoal && heightGoal != 30){
+         student.position.y +=5;
+       } else if (student.position.y == heightGoal && heightGoal != 30){
+         heightGoal = 30;
+         student.position.y -=5;
+       } else if (student.position.y > heightGoal){
+         student.position.y -=5;
+       } else if (student.position.y == 30){
+         body.jumping = false;
+       }
+     }
+     if (cruiser1.position.z + cruiser1.length/2 + 48 > 0 && cruiser1.position.z - cruiser1.length/2  + 48< 0){
+       if(checkCollision(body.left, body.right, body.bottom, cruiser1)){
+         game.studentHealth = 0;
+       }
+     }
+     if (cruiser2.position.z + cruiser2.length/2 - 48 > 0 && cruiser2.position.z - cruiser2.length/2  - 48< 0){
+       if(checkCollision(body.left, body.right, body.bottom, cruiser2)){
+         game.studentHealth = 0;
+       }
+     }
+     for (var i = 0; i < game.maxSnowbanks; i++){
+       snowbank = snowbanks[i];
+       if(snowbank.position.z + snowbanks.length/2 > 0 && snowbank.position.z - snowbanks.length/2 < 0){
+         if(checkCollision(body.left,body.right,body.bottom,snowbank) && snowbank.checked == false){
+           game.studentHealth -= 10;
+           snowbank.checked = true;
+         }
+       }
+     }
+     for (var i = 0; i < game.maxSlices; i++){
+       slice = slices[i];
+       if(slice.position.z + slice.length/2 > 0 && slice.position.z - slice.length/2 < 0){
+         if(checkCollision(body.left,body.right,body.bottom,slice) && slice.checked == false){
+           slice.position.z = 1000;
+           game.studentHealth += 10;
+           if(game.studentHealth > 100){
+             game.studentHealth = 100;
+           }
+           slice.checked = true;
+         }
+       }
+     }
+     for (var i = 0; i < game.maxJackets; i++){
+       jacket = jackets[i];
+       if(jacket.position.z + jacket.length/2 > 0 && jacket.position.z - jacket.length/2 < 0){
+         if(checkCollision(body.left,body.right,body.bottom,jacket) && jacket.checked == false){
+           jacket.position.z = 1000;
+           game.tick --;
+           if (game.tick <= 0){
+             game.tick =1;
+           }
+           jacket.checked = true;
+         }
+       }
+     }
+
+     if (game.newTime >= 0 && leavingJug.position.z < 1000){
+       leavingJug.position.z += 15;
+     }
+     if (game.newTime >= 25 && halfwayPoint.position.z < 1000){
+       halfwayPoint.position.z += 15;
+     }
+     if (game.newTime >= 55 && lastSign.position.z < 1000){
+       lastSign.position.z += 15;
+     }
+
+     document.getElementById("scoreValue").innerHTML = game.studentHealth;
+   }
+}
+
+//--------------------------- animation support -----------------------------------
+
+/* This function runs the animation by calling updateForFrame() then calling render().
+* Finally, it arranges for itself to be called again to do the next frame.  When the
+* value of animating is set to false, this function does not schedule the next frame,
+* so the animation stops.
+*/
+function doFrame() {
+   controls.update();
+    updateForFrame();
+   render();
+   requestAnimationFrame(doFrame);
+
+}
+
+
+
+function init() {
+   try {
+      canvas = document.getElementById("glcanvas");
+      renderer = new THREE.WebGLRenderer( {
+            canvas: canvas,
+            antialias: true
+      } );
+   }
+   catch (e) {
+      document.getElementById("canvas-holder").innerHTML =
+      "<h3><b>Sorry, WebGL is required but is not available.</b><h3>";
+      return;
+   }
+
+   document.addEventListener('keydown', handleKeyPress);
+
+
+
+   createScene();
+   render();
+}
+
+function checkCollision(left, right, bottom, object){
+  var objectLeft = object.position.x - object.width/2 ;
+  var objectRight = object.position.x + object.width/2;
+  var objectHeight = object.height;
+  if (left < objectLeft && objectLeft < right && bottom < object.height){
+    return true;
+  } else if (left < objectRight && objectRight < right && bottom < object.height){
+     return true;
+  } else if (objectLeft < left  && left < objectRight && bottom < object.height){
+    return true;
+  } else if (objectLeft < right && right < objectRight && bottom < object.height){
+     return true;
+  } else{
+    return false;
+  }
+}
+
+function resetGame(difficulty){
+  if (difficulty == "Flurries"){
+    game.tick = 3;
+    game.cruiserSpeed = 10;
+    game.snowbankProb = .3;
+  } else if(difficulty == "Heavy Snowfall"){
+    game.tick = 4;
+    game.cruiserSpeed = 30;
+    game.snowbankProb = .5;
+  } else if(difficulty == "Blizzard"){
+    game.tick = 5;
+    game.cruiserSpeed = 40;
+    game.snowbankProb = .8;
+  }
+  game.status = "paused";
+  game.newTime = 0;
+  game.oldTime = 0;
+  game.studentHealth = 100;
+  particles.children.forEach(p => {
+    p.velocity = new THREE.Vector3(0,-1, 15);
+    p.position.set(400 + -Math.random() * 800, Math.random() * 300, 500 + Math.random() * -4500);
+  });
+  leavingJug.position.set(-275, 30 , -75);
+  halfwayPoint.position.set(-275, 30 , -6000);
+  lastSign.position.set(-275, 30 , -6000);
+  taylorLake.position.set(-500,2 , -3000);
+  for (var i = 0; i < game.maxJackets; i++){
+    var jacket = jackets[i];
+    jacket.position.set(50,0,2000);
+    jacket.checked= false;
+  }
+  for (var i = 0; i < game.maxSlices; i++){
+    var slice = slices[i];
+    slice.position.set(-50,0,2000);
+    slice.checked= false;
+    if (i > game.maxSlices - 3){
+      slice.position.z = Math.random() * -6000;
+      slice.position.x = game.xPosArray[Math.floor(Math.random()*4)];
+      if (slice.position.x == Math.abs(125)){
+        slice.position.y = 6;
+      } else{
+        slice.position.y = 0;
+      }
+    }
+    game.clock.stop();
+    game.clock.start();
+    game.newTime = 0;
+  }
+  var snowbankAngles = [0, 180]
+  var snowbankAnglesRand = snowbankAngles[Math.floor(Math.random() * 2)];
+  for (var i = 0; i < game.maxSnowbanks; i++){
+    var snowbank = snowbanks[i];
+    if (i < game.maxSnowbanks/2){
+      snowbank.position.set(-125,-snowbank.height,1000);
+    } else{
+      snowbank.position.set(125,-snowbank.height,1000);
+    }
+    snowbank.checked = false;
+  }
+  cruiser1.position.set(-50,18,-6000);
+  cruiser1.driving = false;
+  cruiser2.position.set(50,18,-6000);
+  cruiser2.driving = false;
+
+  document.getElementById("scoreValue").innerHTML = game.studentHealth;
+}
+
+function animateStudent(){
+  var amp = 0.5;
+  runningCycle += 0.25;//increment angle
+  var angle = runningCycle;
+  angle = angle % (2*Math.PI);
+
+  leftarm.rotation.x = -Math.cos(angle + Math.PI) * amp;
+    lefthand.position.z = -Math.cos(angle) * amp;
+    rightarm.rotation.x = -Math.cos(angle) * amp;
+    righthand.position.z = -Math.cos(angle + Math.PI) * amp;
+
+    leftleg.position.z = Math.cos(angle + Math.PI) * amp;
+    leftleg.position.y = -2.7 + -Math.sin(angle + Math.PI) * amp;
+    leftfoot.position.z = Math.cos(angle + Math.PI) * amp;
+    leftfoot.position.y = -3.8 + -Math.sin(angle + Math.PI) * amp;
+
+    rightleg.position.z = Math.cos(angle) * amp;
+    rightleg.position.y = -2.7 + -Math.sin(angle) * amp;
+    rightfoot.position.z = Math.cos(angle) * amp;
+    rightfoot.position.y = -3.8 + -Math.sin(angle) * amp;
+
+    core.position.y = -0.7 - Math.cos(angle*2) * amp * 0.1;
+    core.rotation.y = Math.cos(angle + Math.PI) * amp * 0.4;
+
+    head.position.y = 1.5 - Math.cos(angle * 2) * amp * 0.2;
+    head.rotation.z = Math.cos(angle) * amp * 0.1;
+    head.rotation.y = Math.cos(angle) * amp * 0.05;
+}
+
+
+
+//--------------------MODELING FUCTIONS----------------//
+
+function createBox(dx, dy, dz, color, x, y, z) {
+    var geom = new THREE.BoxBufferGeometry(dx, dy, dz);
+    var mat = new THREE.MeshPhongMaterial({
+		color:color,
+    });
+    var box = new THREE.Mesh(geom, mat);
+    box.castShadow = true;
+    box.receiveShadow = true;
+    box.position.set(x, y, z);
+    return box;
+}
+
+function createSkyBox(){
+  var skyboxMaterial = new THREE.MeshBasicMaterial({color: 0x000000, side: THREE.BackSide});
+  var skyboxGeo = new THREE.BoxBufferGeometry(7500, 7500, 7500);
+  var skybox = new THREE.Mesh(skyboxGeo, skyboxMaterial);
+   skybox.position.z = 0;
+   scene.add(skybox);
+}
+
+function createSnowfall(){
+   particles = new THREE.Group();
+   var geo = new THREE.BoxBufferGeometry(1,1,1);
+   var pMaterial = new THREE.PointsMaterial({
+     color: colors.white,
+     size:1,
+   });
+   for (var i = 0; i < game.pCount; i++){
+     var particle = new THREE.Mesh(geo, pMaterial);
+     particle.velocity = new THREE.Vector3(0,-1, 10);
+     particle.position.x = 400 + -Math.random() * 800;
+     particle.position.y = Math.random() * 300;
+     particle.position.z = 500 + Math.random() * -4500;
+     particles.add(particle);
+   }
+   // particles.position.x = -200;
+   particles.position.z = 000;
+   scene.add(particles);
+ }
+
+ function createCracks(){
+   cracks = new THREE.Group();
+   var crackGeo = new THREE.BoxBufferGeometry(40,1,.5);
+   var cMaterial = new THREE.MeshPhongMaterial({ color: colors.black, transparent:true, opacity:1});
+   for (var i = 0; i < game.crackCount; i++){
+     var leftCrack = new THREE.Mesh(crackGeo, cMaterial);
+     var rightCrack = new THREE.Mesh(crackGeo, cMaterial);
+     leftCrack.velocity = new THREE.Vector3(0,0,15);
+     leftCrack.position.x = -120;
+     leftCrack.position.y = 4.75;
+     leftCrack.position.z = 500 + (i * -(roadLength/game.crackCount));
+     rightCrack.velocity = new THREE.Vector3(0,0,15);
+     rightCrack.position.x = 120;
+     rightCrack.position.y = 4.75;
+     rightCrack.position.z = 500 + (i * -(roadLength/game.crackCount));
+     cracks.add(leftCrack);
+     cracks.add(rightCrack);
+   }
+   scene.add(cracks);
+ }
+
+ function createLamps(){
+   lamps = new THREE.Group();
+   for (var i = 0; i < game.lampCount; i++){
+     var leftLamp = createLamp();
+     var rightLamp = createLamp();
+     rightLamp.scale.x = 20;
+     rightLamp.scale.y = 35;
+     rightLamp.scale.z = 25;
+     leftLamp.scale.x = 20;
+     leftLamp.scale.y = 35;
+     leftLamp.scale.z = 25;
+     leftLamp.velocity = new THREE.Vector3(0,0,10);
+     leftLamp.position.x = -160;
+     leftLamp.position.y = 82;
+     leftLamp.position.z = 500 + (i * -(roadLength/game.lampCount));
+     rightLamp.velocity = new THREE.Vector3(0,0,10);
+     rightLamp.position.x = 160;
+     rightLamp.position.y = 82;
+     rightLamp.position.z = 500 + (i * -(roadLength/game.lampCount));
+     lamps.add(leftLamp);
+     lamps.add(rightLamp);
+   }
+   scene.add(lamps);
+ }
+
+ function createHouses(){
+   houses = new THREE.Group();
+   for (var i = 0; i < game.houseCount; i++){
+     var house;
+     if (i % 2 == 0){
+       house = createHouse();
+     }else{
+       house = createGarageHouse();
+     }
+     house.velocity = new THREE.Vector3(0,0,10);
+     house.scale.x = 50;
+     house.scale.y = 50;
+     house.scale.z = 50;
+     house.rotation.y = radians(180);
+     house.position.x = 350;
+     house.position.y = 4.75;
+     house.position.z = 500 + (i * -(roadLength/game.houseCount));
+     houses.add(house);
+   }
+   scene.add(houses);
+ }
+ function createGround(){
+   var ground = createBox(200, 2, roadLength, colors.ground, 0, -1, -roadLength/2 + 500);
+   var right_sidewalk = createBox(40, 6, roadLength, colors.sidewalk, 120, 2, -roadLength/2 + 500);
+   var left_sidewalk = createBox(40, 6, roadLength, colors.sidewalk, -120, 2, -roadLength/2 + 500);
+   var right_plane = createBox(1000,2,roadLength, colors.grass, 640, -1, -roadLength/2 + 500);
+   var left_plane = createBox(1000,2,roadLength, colors.grass, -640, -1, -roadLength/2 + 500);
+   var line1 = createBox(2, 1, roadLength, colors.roadLine, -2, 0, -roadLength/2 + 500);
+   var line2 = createBox(2, 1, roadLength, colors.roadLine,  2, 0, -roadLength/2 + 500);
+   scene.add(right_plane);
+   scene.add(left_plane);
+   scene.add(left_sidewalk);
+   scene.add(right_sidewalk);
+   scene.add(ground);
+   scene.add(line1);
+   scene.add(line2);
+ }
+
+ function createLampHead() {
+   var glassMaterial = new THREE.MeshLambertMaterial({
+           color: 0xf5de2f,
+           opacity: 0.3,
+           transparent: true
+           });
+ var cornerMaterial = new THREE.MeshPhongMaterial({
+             color: 0x7a7979,
+             refractionRatio: 0.8
+           });
+   var sideGeo1 = new THREE.BoxBufferGeometry(0.01, 0.75, 0.5);
+   var cornerGeo1 = new THREE.BoxBufferGeometry(0.05, 0.75, 0.05);
+   var sideGeo2 = new THREE.BoxBufferGeometry(0.5, 0.75, 0.01);
+   var topGeo = new THREE.BoxBufferGeometry(0.5 ,0.01, 0.5);
+   var side1 = new THREE.Mesh(sideGeo1, glassMaterial);
+   side1.position.y = 2;
+   side1.position.x = -0.25;
+   var corner1 = new THREE.Mesh(cornerGeo1, cornerMaterial);
+   corner1.position.y = 2;
+   corner1.position.x = 0.25;
+   corner1.position.z = 0.25;
+   var side2 = new THREE.Mesh(sideGeo1, glassMaterial);
+   side2.position.y = 2;
+   side2.position.x = 0.25;
+   var corner2 = new THREE.Mesh(cornerGeo1, cornerMaterial);
+   corner2.position.y = 2;
+   corner2.position.x = -0.25;
+   corner2.position.z = 0.25;
+   var side3 = new THREE.Mesh(sideGeo2, glassMaterial);
+   side3.position.y = 2;
+   side3.position.z = -0.25;
+   var corner3 = new THREE.Mesh(cornerGeo1, cornerMaterial);
+   corner3.position.y = 2;
+   corner3.position.x = 0.25;
+   corner3.position.z = -0.25;
+   var side4 = new THREE.Mesh(sideGeo2, glassMaterial);
+   side4.position.y = 2;
+   side4.position.z = 0.25;
+   var corner4 = new THREE.Mesh(cornerGeo1, cornerMaterial);
+   corner4.position.y = 2;
+   corner4.position.x = -0.25;
+   corner4.position.z = -0.25;
+   var top = new THREE.Mesh(topGeo, cornerMaterial);
+   top.position.y = 2.375;
+   var bulb = new THREE.Mesh(new THREE.SphereBufferGeometry(0.3,12,12), new THREE.MeshPhongMaterial({ color: 0xFFF700}));
+   bulb.position.y = 2;
+   var head = new THREE.Object3D();
+   head.add(side1);
+   head.add(side2);
+   head.add(side3);
+   head.add(side4);
+   head.add(top);
+   head.add(corner1);
+   head.add(corner2);
+   head.add(corner3);
+   head.add(corner4);
+   head.add(bulb);
+   return head;
+ }
+
+
+ function createLamp(){
+   var base = new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,1), new THREE.MeshPhongMaterial({ color: 0x7a7979 }));
+   base.scale.set(0.75, 0.75, 0.75);
+   base.position.y = -2;
+   var post = new THREE.Mesh(new THREE.CylinderBufferGeometry(1,1,1), new THREE.MeshPhongMaterial({ color: 0x7a7979 }));
+   post.scale.set(0.25, 3.5, 0.25);
+   var lightpost = new THREE.Object3D();
+   var lampHead = createLampHead();
+   lightpost.add(base);
+   lightpost.add(post);
+   lightpost.add(lampHead);
+   var spotLight = new THREE.SpotLight( 0xffffff );
+   spotLight.position.set(0,2,0);
+   spotLight.intensity = 2;
+   spotLight.distance = 200;
+   spotLight.target = base;
+   lightpost.add(spotLight);
+   return lightpost;
+ }
+
+ function createAxle() {
+    var wheel = new THREE.Mesh(
+       new THREE.TorusBufferGeometry(0.47, 0.15, 12, 22),
+       new THREE.MeshLambertMaterial({ color: colors.black })
+       );
+    var cylinder = new THREE.Mesh(
+       new THREE.CylinderBufferGeometry(0.5,0.5,1,5,1),
+       colors.grey
+       );
+    cylinder.scale.set(0.1,1.2,0.15);
+    wheel.scale.set(0.75,0.75,0.7);
+    wheel.add(cylinder.clone());
+    cylinder.rotation.z = Math.PI/3;
+    wheel.add(cylinder.clone());
+    cylinder.rotation.z = -Math.PI/3;
+    wheel.add(cylinder.clone());
+    var axleModel = new THREE.Object3D();
+    cylinder.scale.set(0.2,1,0.2);
+    cylinder.rotation.set(Math.PI/2,0,0);
+    axleModel.add(cylinder);
+    wheel.position.z = 1.6;
+    axleModel.add(wheel.clone());
+    wheel.position.z = -1.6;
+    axleModel.add(wheel);
+    return axleModel;
+ }
+
+ function createCar(axleModel) {
+    var carModel = new THREE.Object3D();
+    var red = new THREE.MeshPhongMaterial({
+          color: "red",
+          specular: 0x080808,
+          shininess: 8,
+    });
+    var textureLoader = new THREE.TextureLoader();
+    var front = textureLoader.load( "http://localhost:8000/Desktop/JugRun/images/front.png" );
+    var frontside = textureLoader.load( "http://localhost:8000/Desktop/JugRun/images/frontside.png" );
+    var cruiserD = textureLoader.load( "http://localhost:8000/Desktop/JugRun/images/cruiserD.png" );
+
+
+    front.anisotropy = 16;
+    frontside.anisotropy = 16;
+    cruiserD.anisotropy = 16;
+    const materialBase = [ new THREE.MeshStandardMaterial( {map: cruiserD} ),
+     materials.red,
+     materials.red,
+     materials.red,
+     materials.red,
+     materials.red
+    ];
+    const frontMaterial = [ new THREE.MeshStandardMaterial( {map: front} ),
+     materials.red,
+     materials.red,
+     materials.red,
+     new THREE.MeshStandardMaterial( {map: frontside } ),
+     materials.red
+    ];
+    var door = new THREE.Mesh(new THREE.BoxBufferGeometry(1.2,3.9,3.5), materials.red);
+       door.position.y = 1.555;
+       door.position.x = 4.1;
+       door.position.z = 0;
+    var hood = new THREE.Mesh(new THREE.BoxBufferGeometry(6,3.8,3.5, 1, 1, 1), materials.red);
+    hood.position.set(0.5,1.6,0);
+    var nose = new THREE.Mesh(new THREE.BoxBufferGeometry(1.75,2,3), frontMaterial);
+    nose.position.set(5.58,0.7,0);
+    var forehead = new THREE.Mesh(new THREE.BoxBufferGeometry(0.8,0.6,3.5), materialBase);
+    forehead.position.set(5.1,2.9,0);
+    var triangleNose = new THREE.Object3D();
+    var length = 1;
+    var width = 1;
+    var shape1 = new THREE.Shape()
+    shape1.moveTo( 0,0 );
+    shape1.lineTo( 0, 0.01 );
+    shape1.lineTo( .5, -0.3 );
+    shape1.lineTo( 0, 0 );
+
+    var extrudeSettings1 = {
+     amount: 2.9,
+     steps: 2,
+    	bevelEnabled: true,
+    	bevelThickness: 1,
+    	bevelSize: 1,
+    	bevelOffset: 1,
+    	bevelSegments: 0
+
+   };
+
+   var noseBase = new THREE.Mesh(
+     new THREE.ExtrudeBufferGeometry(shape1, extrudeSettings1),
+     new THREE.MeshPhongMaterial({ color: colors.black, specular: 0x101010, shininess:16})
+   );
+
+   noseBase.position.set(4.6,2.25,-1.46);
+
+   var aboveTriangle = new THREE.Object3D();
+
+   var length = 1;
+   var width = 1;
+
+   var shape2 = new THREE.Shape()
+   shape2.moveTo( 0,0 );
+   shape2.lineTo( 0.1, 0.2 );
+   shape2.lineTo( 0.1, 0.22 );
+   shape2.lineTo( 0, 0 );
+
+   var extrudeSettings2 = {
+    amount: 2.9,
+    steps: 2,
+    bevelEnabled: true,
+    bevelThickness: 1,
+    bevelSize: 1,
+    bevelOffset: 1,
+    bevelSegments: 0
+
+  };
+
+  var hoodTop = new THREE.Mesh(
+    new THREE.ExtrudeBufferGeometry(shape2, extrudeSettings2),
+    new THREE.MeshLambertMaterial({
+
+    })
+  );
+
+  hoodTop.position.set(4.6,5.25,-1.46);
+
+    var length1 = .02, width1 = .02;
+
+    var shape = new THREE.Shape();
+    shape.moveTo( 0,0 );
+    shape.lineTo( 0, .02 );
+    shape.lineTo( .2, 0 );
+    shape.lineTo( 0, 0 );
+
+    var extrudeSettings = {
+    	steps: 2,
+    	depth: 0.05,
+    	bevelEnabled: true,
+    	bevelThickness: .1,
+    	bevelSize: 1,
+    	bevelOffset: -5,
+    	bevelSegments: 1
+
+    };
+
+    var headlight1 = new THREE.Mesh(new THREE.SphereBufferGeometry(1,16,8), materials.yellow);
+    headlight1.scale.set(0.1,0.25,0.25);
+    headlight1.position.set(-3,0.6,-1.5);
+    var headlight2 = headlight1.clone();
+    headlight1.position.set(-3,0.6,1.4);
+
+    var spotLight1 = new THREE.SpotLight( 0xffffff );
+    spotLight1.position.set(headlight1.position.x + 10, headlight1.position.y + 2, headlight1.position.z);
+    spotLight1.intensity = 2;
+    spotLight1.angle = Math.PI/4;
+    spotLight1.distance = 350;
+
+    var target1 = new THREE.Mesh(new THREE.SphereBufferGeometry(0.001,0.001,0.001), new THREE.MeshPhongMaterial({ color: 0xffffff}));
+
+    target1.position.x = spotLight1.position.x + 5;
+    target1.position.y = headlight1.position.y;
+    target1.position.z = headlight1.position.z;
+
+    carModel.add(target1);
+
+    spotLight1.target = target1;
+
+    var spotLight2 = new THREE.SpotLight( 0xffffff );
+    spotLight2.position.set(headlight2.position.x + 10, headlight2.position.y + 2, headlight2.position.z);
+    spotLight2.angle = Math.PI/4;
+    spotLight2.intensity = 2;
+    spotLight2.distance = 350;
+
+    var target2 = new THREE.Mesh(new THREE.SphereBufferGeometry(0.001,0.001,0.001), new THREE.MeshPhongMaterial({ color: 0xffffff}));
+
+    target2.position.x = spotLight2.position.x + 5;
+    target2.position.y = headlight2.position.y;
+    target2.position.z = headlight2.position.z;
+
+    carModel.add(target2);
+
+    spotLight2.target = target2;
+
+    var carAxle1 = axleModel.clone();
+    carAxle1.position.x = -0.2;
+    carAxle1.position.y = -0.25;
+    carAxle1.scale.z = 1.1;
+    var carAxle2 = axleModel.clone();
+    carAxle2.position.x = 5.6;
+    carAxle2.position.y = -0.25;
+
+    carModel.add(carAxle1);
+    carModel.add(carAxle2);
+    carModel.add(hood);
+    carModel.add(door);
+    carModel.add(nose);
+    carModel.add(noseBase);
+    carModel.add(forehead);
+    carModel.add(spotLight1);
+    carModel.add(spotLight2);
+
+    return carModel;
+ }
+
+
+
+
+
+
+ function createJacket() {
+
+    var jacketModel = new THREE.Object3D();
+    var red = new THREE.MeshPhongMaterial({
+          color: "red",
+          specular: 0x080808,
+          shininess: 8
+    });
+
+
+
+    var hood = new THREE.Mesh(new THREE.BoxBufferGeometry(6,1,3.5, 1, 1, 1), jacketColor);
+    hood.position.set(0.5,1.85,0);
+
+    var ground = new THREE.Mesh(new THREE.CylinderBufferGeometry(1.9,1.9,1,64,1), jacketColor);
+    ground.position.set(-2.4, 1.851, 0);
+
+    var headHole = new THREE.Mesh(new THREE.CylinderBufferGeometry(1.3,1.3,1,64,1),materials.black);
+    headHole.position.set(-2.4, 1.855, 0);
+
+    var armLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,3.5, 1, 1, 1), jacketColor);
+    armLeft.position.set(0.5,1.85,2.3);
+    armLeft.rotation.y = (radians(55));
+
+    var armRight = new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,3.5, 1, 1, 1), jacketColor);
+    armRight.position.set(0.5,1.85,-2.3);
+    armRight.rotation.y = (radians(-55));
+
+    var zipper = new THREE.Mesh(new THREE.BoxBufferGeometry(5,1,0.25, 1, 1, 1), materials.black);
+    zipper.position.set(1.02, 1.852, 0);
+
+    jacketModel.add(hood);
+    jacketModel.add(ground);
+    jacketModel.add(armLeft);
+    jacketModel.add(armRight);
+    jacketModel.add(zipper);
+    jacketModel.add(headHole);
+
+    return jacketModel;
+ }
+
+ function createSlice(){
+  var slice = new THREE.Object3D();
+
+  var shape = new THREE.Shape();
+      shape.moveTo( 0,0 );
+      shape.lineTo( 0, 0.05 );
+      shape.lineTo( 0.2, 0.02 );
+      shape.lineTo( 0, 0 );
+
+      var extrudeSettings = {
+      amount: 0.3,
+     steps: 2,
+     bevelEnabled: true,
+     bevelThickness: 1,
+     bevelSize: 1,
+     bevelOffset: 1,
+     bevelSegments: 0
+      };
+
+  var base = new THREE.Mesh(
+  new THREE.ExtrudeBufferGeometry(shape,extrudeSettings),
+  new THREE.MeshLambertMaterial({
+  color: 0xFED511
+  })
+  );
+
+  var crust = new THREE.Mesh(
+  new THREE.CylinderBufferGeometry(0.2,0.2,2.3,18,1),
+  new THREE.MeshLambertMaterial({
+  color: 0x885522
+  })
+  );
+  crust.position.y = 0;
+  crust.position.x = -1;
+  crust.position.z = 0.2;
+
+  var pepperoni1 = pepperoni(-0.4,0.4,0.25);
+  var pepperoni2 = pepperoni(-0.2,-0.3,0.25);
+  var pepperoni3 = pepperoni(0.5,0,0.25);
+
+  slice.add(base);
+  slice.add(crust);
+  slice.add(pepperoni1, pepperoni2, pepperoni3);
+  return slice;
+  }
+
+  function pepperoni(x,y,z){
+  var pep = new THREE.Mesh(
+  new THREE.CylinderBufferGeometry(0.25,0.25,0.2,16,1),
+  new THREE.MeshLambertMaterial({
+  color: 0xCD2805
+  })
+  );
+  pep.position.x = x;
+  pep.position.y = y;
+  pep.position.z = z;
+  pep.rotation.x = Math.PI/2;
+
+  return pep;
+}
+
+function createStudent(){
+
+var person = new THREE.Object3D();
+
+var head = new THREE.Mesh(
+new THREE.BoxBufferGeometry(2,2,1.5),
+new THREE.MeshLambertMaterial({
+color: 0xA2A0A0
+})
+);
+head.position.y = 1.5;
+
+var core = new THREE.Mesh(
+new THREE.BoxBufferGeometry(1.4,2,1.5),
+studentJacketColor)
+core.position.y = -0.8;
+
+var leftarm = arms(-1.1, -0.5, -Math.PI/8);
+var rightarm = arms(1.1, -0.5, Math.PI/8);
+
+var lefthand = hands(-1.5, -1.35);
+var righthand = hands(1.5, -1.35);
+
+var leftleg = legs(-0.4, -2.7);
+var rightleg = legs(0.4, -2.7);
+
+var leftfoot = feet(-0.4, -3.8, 0.2);
+var rightfoot = feet(0.4, -3.8, 0.2);
+
+person.add(head);
+person.add(core);
+person.add(leftarm, rightarm);
+person.add(lefthand, righthand);
+person.add(leftleg, rightleg);
+person.add(leftfoot, rightfoot);
+
+return person;
+
+}
+
+function arms(x,y,rotate){
+var arm = new THREE.Mesh(
+   new THREE.ConeBufferGeometry(0.4,1.3,20,1), studentJacketColor
+   )
+
+arm.position.x = x;
+arm.position.y = y;
+arm.rotation.z = rotate;
+
+return arm;
+}
+
+function hands(x,y){
+var hand = new THREE.Mesh(
+new THREE.SphereBufferGeometry(0.2,0.2,0.2),
+new THREE.MeshLambertMaterial({
+color: 0xA2A0A0
+})
+    );
+
+    hand.position.x = x;
+    hand.position.y = y;
+
+    return hand;
+}
+
+function legs(x,y){
+var leg = new THREE.Mesh(
+new THREE.BoxBufferGeometry(0.5,1.3,0.7),
+new THREE.MeshLambertMaterial({
+color: 0x402b2f
+})
+);
+
+leg.position.x = x;
+leg.position.y = y;
+return leg;
+}
+
+function feet(x,y,z){
+var foot = new THREE.Mesh(
+new THREE.BoxBufferGeometry(0.5, 0.5, 1.2),
+new THREE.MeshLambertMaterial({
+color: 0xccb997
+})
+);
+
+foot.position.x = x;
+foot.position.y = y;
+foot.position.z = z;
+
+return foot;
+}
+
+function createHouse() {
+
+   var house = new THREE.Object3D();
+
+   var houseMaterials = [materials.houseYellow, materials.houseGrey, materials.houseBrown, materials.houseBlue];
+
+   var colorRand = Math.floor(Math.random() * 4);
+
+
+   var houseBase = new THREE.Mesh(new THREE.BoxBufferGeometry(3.65,4,4, 1, 1, 1), houseMaterials[colorRand]);
+   houseBase.position.set(0.5,1.85,0);
+
+   var door = new THREE.Mesh(new THREE.BoxBufferGeometry(3.6,2.1, 1, 1, 1), houseMaterials[colorRand]);
+   door.position.set(0.55,0.91,0);
+
+   var houseWindowLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(3.674,1.1,1.1, 1, 1, 1), houseMaterials[colorRand]);
+   houseWindowLeft.position.set(0.5,2.7,1.2);
+
+   var houseWindowRight = new THREE.Mesh(new THREE.BoxBufferGeometry(3.674,1.1,1.1, 1, 1, 1), houseMaterials[colorRand]);
+   houseWindowRight.position.set(0.5,2.7,-1.2);
+
+   //roof
+
+   var houseRoofLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(4,3.35,0.5, 1, 1, 1), colors.black);
+   houseRoofLeft.position.set(0.5,4.7,-1.04);
+   houseRoofLeft.rotation.x = (radians(45));
+   houseRoofLeft.rotation.y = (radians(0));
+
+   var houseRoofRight = new THREE.Mesh(new THREE.BoxBufferGeometry(4,3.35,0.5, 1, 1, 1), colors.black);
+   houseRoofRight.position.set(0.5,4.7,1.04);
+   houseRoofRight.rotation.x = (radians(-45));
+
+   var houseFillIn = new THREE.Mesh(new THREE.BoxBufferGeometry(3.67,2.7,2.5, 1, 1, 1), houseMaterials[colorRand]);
+   houseFillIn.position.set(0.5,4,0.1);
+   houseFillIn.rotation.x = (radians(45));
+   houseFillIn.rotation.y = (radians(0));
+
+
+  house.add(houseBase);
+  house.add(houseRoofLeft);
+  house.add(houseRoofRight);
+  house.add(houseFillIn);
+  house.add(door);
+  house.add(houseWindowLeft);
+  house.add(houseWindowRight);
+
+   return house;
+}
+
+function createGarageHouse() {
+
+   var house = new THREE.Object3D();
+
+   var houseMaterials = [materials.houseYellow, materials.houseGrey, materials.houseBrown, materials.houseBlue ];
+
+   var colorRand = Math.floor(Math.random() * 4);
+
+
+   var houseBase = new THREE.Mesh(new THREE.BoxBufferGeometry(3.65,4,4, 1, 1, 1), houseMaterials[colorRand]);
+   houseBase.position.set(0.5,1.85,0);
+
+   var garage = new THREE.Mesh(new THREE.BoxBufferGeometry(3,2.5,3.5, 1, 1, 1), houseMaterials[colorRand]);
+   garage.position.set(0.5,1.11,-3.5);
+
+   var driveWay = new THREE.Mesh(new THREE.BoxBufferGeometry(3,2.5,3.5, 1, 1, 1), houseMaterials[colorRand]);
+   driveWay.position.set(0.5,1.11,-3.5);
+
+   var garageRoof = new THREE.Mesh(new THREE.BoxBufferGeometry(3.65,0.5,3.35, 1, 1, 1), colors.black);
+   garageRoof.position.set(0.5,2.5,-3.7);
+
+   var garageDoor = new THREE.Mesh(new THREE.BoxBufferGeometry(0.5,2.2,3, 1, 1, 1), houseMaterials[colorRand]);
+   garageDoor.position.set(1.755,0.95,-3.625);
+
+   var door = new THREE.Mesh(new THREE.BoxBufferGeometry(3.6,2.1, 1, 1, 1), houseMaterials[colorRand]);
+   door.position.set(0.55,0.91,0);
+
+   var houseWindowLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(3.674,1.1,1.1, 1, 1, 1), houseMaterials[colorRand]);
+   houseWindowLeft.position.set(0.5,2.7,1.2);
+
+   var houseWindowRight = new THREE.Mesh(new THREE.BoxBufferGeometry(3.674,1.1,1.1, 1, 1, 1), houseMaterials[colorRand]);
+   houseWindowRight.position.set(0.5,2.7,-1.2);
+
+   //roof
+
+   var houseRoofLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(4,3.35,0.5, 1, 1, 1), colors.black);
+   houseRoofLeft.position.set(0.5,4.7,-1.04);
+   houseRoofLeft.rotation.x = (radians(45));
+   houseRoofLeft.rotation.y = (radians(0));
+
+   var houseRoofRight = new THREE.Mesh(new THREE.BoxBufferGeometry(4,3.35,0.5, 1, 1, 1), colors.black);
+   houseRoofRight.position.set(0.5,4.7,1.04);
+   houseRoofRight.rotation.x = (radians(-45));
+
+   var houseFillIn = new THREE.Mesh(new THREE.BoxBufferGeometry(3.67,2.7,2.5, 1, 1, 1), houseMaterials[colorRand]);
+   houseFillIn.position.set(0.5,4,0.1);
+   houseFillIn.rotation.x = (radians(45));
+   houseFillIn.rotation.y = (radians(0));
+
+
+  house.add(houseBase);
+  house.add(driveWay);
+  house.add(garage);
+  house.add(garageDoor);
+  house.add(garageRoof);
+
+  house.add(houseRoofLeft);
+  house.add(houseRoofRight);
+  house.add(houseFillIn);
+  house.add(door);
+  house.add(houseWindowLeft);
+  house.add(houseWindowRight);
+
+   return house;
+}
+
+function createSnowbank() {
+
+   var snowbankModel = new THREE.Object3D();
+
+// Layer 1
+
+   var layer1A = new THREE.Mesh(new THREE.BoxBufferGeometry(8,1,3.8, 1, 1, 1), materials.white);
+   layer1A.position.set(0.5,1.85,0);
+
+   var layer1B = new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,5, 1, 1, 1), materials.white);
+   layer1B.position.set(0.2,1.85,2.3);
+   layer1B.rotation.y = (radians(90));
+
+   var layer1C = new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,6, 1, 1, 1), materials.white);
+   layer1C.position.set(0.2,1.85,-2.3);
+   layer1C.rotation.y = (radians(90));
+
+// Layer 2
+
+    var layer2A = new THREE.Mesh(new THREE.BoxBufferGeometry(6,0.5,2.5, 1, 1, 1), materials.white);
+    layer2A.position.set(0.2,2.6,0);
+
+    var layer2B = new THREE.Mesh(new THREE.BoxBufferGeometry(1.2,0.5,4, 1, 1, 1), materials.white);
+    layer2B.position.set(0.2,2.6,1.6);
+    layer2B.rotation.y = (radians(90));
+
+    var layer2C = new THREE.Mesh(new THREE.BoxBufferGeometry(0.7,0.5,5, 1, 1, 1), materials.white);
+    layer2C.position.set(0.2,2.65,-1.6);
+    layer2C.rotation.y = (radians(90));
+
+    var layer2D = new THREE.Mesh(new THREE.BoxBufferGeometry(1,0.75,2, 1, 1, 1), materials.white);
+    layer2D.position.set(2.7,2.65,-0.2);
+    layer2D.rotation.y = (radians(90));
+
+// Layer 3
+
+    var layer3A = new THREE.Mesh(new THREE.BoxBufferGeometry(3.5,0.75,1.8, 1, 1, 1), materials.white);
+    layer3A.position.set(-0.3,3.1,0);
+
+    var layer3B = new THREE.Mesh(new THREE.BoxBufferGeometry(1.2,0.75,2, 1, 1, 1), materials.white);
+    layer3B.position.set(0.1,3.1,1.2);
+    layer3B.rotation.y = (radians(90));
+
+    var layer3C = new THREE.Mesh(new THREE.BoxBufferGeometry(0.7,0.75,2.4, 1, 1, 1), materials.white);
+    layer3C.position.set(-0.3,3.1,-1.2);
+    layer3C.rotation.y = (radians(90));
+
+    var layer3D = new THREE.Mesh(new THREE.BoxBufferGeometry(0.8,0.75,1.5, 1, 1, 1), materials.white);
+    layer3D.position.set(1.5,3.1,0);
+    layer3D.rotation.y = (radians(90));
+
+// Layer 4
+
+    var layer4A = new THREE.Mesh(new THREE.BoxBufferGeometry(2,0.75,1.4, 1, 1, 1), materials.white);
+    layer4A.position.set(-0.3,3.4,0);
+
+
+    snowbankModel.add(layer1A);
+    snowbankModel.add(layer1B);
+    snowbankModel.add(layer1C);
+
+    snowbankModel.add(layer2A);
+    snowbankModel.add(layer2B);
+    snowbankModel.add(layer2C);
+    snowbankModel.add(layer2D);
+
+    snowbankModel.add(layer3A);
+    snowbankModel.add(layer3B);
+    snowbankModel.add(layer3C);
+    snowbankModel.add(layer3D);
+
+    snowbankModel.add(layer4A);
+
+   return snowbankModel;
+}
+
+function createLake() {
+   var lakeModel = new THREE.Object3D();
+
+   var lakeSide = new THREE.Mesh(
+      new THREE.CylinderBufferGeometry(5.5, 5.5, 0.5, 64, 1),
+      new THREE.MeshLambertMaterial( { color: 0x0add8e6  } )
+      );
+
+   lakeSide.position.y = -0.3;
+
+   var lakeSide2 = new THREE.Mesh(
+      new THREE.CylinderBufferGeometry(7.5, 5.5, 0.5, 64, 1),
+      new THREE.MeshLambertMaterial( { color: 0x0add8e6  } )
+      );
+
+   lakeSide2.position.y = -0.3;
+   lakeSide2.position.x = -5.9;
+
+   var lakeSide3 = new THREE.Mesh(
+      new THREE.CylinderBufferGeometry(5.5, 5.5, 0.5, 64, 1),
+      new THREE.MeshLambertMaterial( { color: 0x0add8e6  } )
+      );
+
+   lakeSide3.position.y = -0.3;
+   lakeSide3.position.z = 4.3;
+
+   lakeModel.add(lakeSide);
+   lakeModel.add(lakeSide2);
+   lakeModel.add(lakeSide3);
+   return lakeModel;
+
+}
+
+function createJugSign() {
+
+   var jugModel = new THREE.Object3D();
+
+   var jugSignTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/START.png" );
+   var backTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/mBrick.png" );
+   jugSignTexture.anisotropy = 16;
+   backTexture.anisotropy = 16;
+
+   const signMaterial = [ new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: jugSignTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: jugSignTexture,
+     } ),
+
+   ];
+
+   var pillarLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarLeft.position.set(0.5,1.85,0);
+
+   var pillarRight = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarRight.position.set(7.5,1.85,0);
+
+   var sign = new THREE.Mesh(new THREE.BoxBufferGeometry(5.965,4,0.5, 1, 1, 1), signMaterial);
+   sign.position.set(4,2.85,0);
+
+  jugModel.add(pillarLeft);
+  jugModel.add(pillarRight);
+  jugModel.add(sign);
+
+   return jugModel;
+}
+
+
+function createHalfway() {
+
+   var halfwayModel = new THREE.Object3D();
+
+   var halfwaySignTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/HALFWAY.png" );
+   var backTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/mBrick.png" );
+   halfwaySignTexture.anisotropy = 16;
+   backTexture.anisotropy = 16;
+
+   const halfwaySignMaterial = [ new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: halfwaySignTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: halfwaySignTexture,
+     } ),
+
+   ];
+
+   var pillarLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarLeft.position.set(0.5,1.85,0);
+
+   var pillarRight = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarRight.position.set(7.5,1.85,0);
+
+   var sign = new THREE.Mesh(new THREE.BoxBufferGeometry(5.965,4,0.5, 1, 1, 1), halfwaySignMaterial);
+   sign.position.set(4,2.85,0);
+
+  halfwayModel.add(pillarLeft);
+  halfwayModel.add(pillarRight);
+  halfwayModel.add(sign);
+
+   return halfwayModel;
+}
+
+
+function createEndSign() {
+
+   var endSignModel = new THREE.Object3D();
+
+   var endSignTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/END.png" );
+   var backTexture = new THREE.TextureLoader().load( "http://localhost:8000/Desktop/JugRun/images/mBrick.png" );
+   endSignTexture.anisotropy = 16;
+   backTexture.anisotropy = 16;
+
+   const endSignMaterial = [ new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: backTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: endSignTexture,
+     } ),
+
+     new THREE.MeshStandardMaterial( {
+       map: endSignTexture,
+     } ),
+
+   ];
+
+   var pillarLeft = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarLeft.position.set(0.5,1.85,0);
+
+   var pillarRight = new THREE.Mesh(new THREE.BoxBufferGeometry(1,7,1, 1, 1, 1), materials.black);
+   pillarRight.position.set(7.5,1.85,0);
+
+   var sign = new THREE.Mesh(new THREE.BoxBufferGeometry(5.965,4,0.5, 1, 1, 1), endSignMaterial);
+   sign.position.set(4,2.85,0);
+
+  endSignModel.add(pillarLeft);
+  endSignModel.add(pillarRight);
+  endSignModel.add(sign);
+
+   return endSignModel;
+}

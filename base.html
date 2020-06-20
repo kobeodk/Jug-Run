@@ -1,0 +1,90 @@
+<html>
+<head>
+    <title>Jug Run</title>
+    <link rel=stylesheet href="css/game.css"/>
+</head>
+
+<body>
+  <div>
+
+    <div id="world"></div>
+
+    <div id="health">
+      Health: <div id="values"></div>
+    </div>
+
+    <div id ="distance">Distance to End: <div id="feet"></div></div>
+
+    <div id="start">
+      <video autoplay muted loop id="snowVideo">
+        <source src="images/snow.mp4" type="video/mp4">
+      </video>
+      <div class="content">
+        <h1 class='title'>JUG RUN</h1>
+        <div class='instructions'>
+          <h2> It's a cold winter night in Hamilton, and you just left the infamous
+          Old Stone Jug.<br> Get back to your townhouse before you freeze! </h2>
+          <h3> Use the left and right arrow keys to switch lanes and the up arrow key to jump
+          <br> Press "P" to pause the game</h3>
+          <h4> Collect pizza slices and lost jackets from the ground <br> Slices replenish some of your health
+          while jackets provide you more resistance from the cold <br> Avoid snowbanks and cruisers!</h4>
+          <h2> Press "P" to start!</h2>
+        </div>
+      </div>
+    </div>
+
+    <div id="pauseScreen">
+      <div class = "subScreen" >
+        <h1 class="title"> GAME PAUSED </h1>
+        <h1 class="instructions">  Press "P" to resume playing! </h1>
+        </select>
+      </div>
+    </div>
+
+    <div id="lossScreen">
+      <div class = "subScreen">
+        <h1 class="title"> You Lost! </h1>
+        <h2 class="instructions">  Try again, change difficulty, or return to the Main Menu </h2>
+      </div>
+    </div>
+
+    <div id="winScreen">
+      <div class = "subScreen">
+        <h1 class="title"> You Made it! </h1>
+        <h2 class="instructions">  Play again, change difficulty, or return to the Main Menu </h2>
+      </div>
+    </div>
+
+    <div id = "waitingScreen" class = "subScreen">
+      <h1 class = instructions> Press "P" to start! </h1>
+    </div>
+
+    <div id = "buttons">
+      <button class="button" onclick="restart('null')"> Restart Game </button>
+      <button class="button" onclick="goMain()"> Main Menu </button>
+      <br>
+      <label for="diff" class = instructions>Change Difficulty:</label>
+      <select name="diff" id="diff" class="button" onchange="restart(this.value)">
+        <option value="Flurries">Flurries</option>
+        <option value="Heavy Snowfall">Heavy Snowfall</option>
+        <option value="Blizzard">Blizzard</option>
+      </select>
+    </div>
+</div>
+
+<script src='js/dat.gui.min.js'></script>
+<script type='text/javascript' src='js/dat.gui.min.js'></script>
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="js/gameLoader.js"></script>
+<script src="js/gameScene.js"></script>
+<script src="js/gameModeling.js"></script>
+<script src="js/gameCollision.js"></script>
+<script src="js/gameMath.js"></script>
+<script src="js/TGALoader.js"></script>
+<script src="js/gameBackend.js"></script>
+
+
+
+</body>
+</html>

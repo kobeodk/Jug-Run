@@ -1,0 +1,136 @@
+@import url(https://fonts.googleapis.com/css?family=Piedra);
+@import url(https://fonts.googleapis.com/css?family=Staatliches);
+
+body {
+  overflow:hidden;
+  margin: 0px;
+}
+
+
+#snowVideo{
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.content{
+  position: fixed;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0);
+  height: 100%;
+  width: 100%;
+  overflow:hidden;
+  text-align: center;
+}
+
+.subScreen{
+  position: fixed;
+  bottom: 0;
+  background: rgba(0,0,0.5,0.5);
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  text-align: center;
+  color: white;
+}
+
+#buttons{
+  position: fixed;
+  bottom: 0;
+  background: rgba(0,0,0,0);
+  height: 50%;
+  width: 100%;
+  overflow: hidden;
+  text-align: center;
+  color: white;
+}
+
+.title{
+  color: white;
+  font-family:Piedra;
+  font-size: 100;
+}
+
+.instructions{
+  color: white;
+  font-size: 25;
+  margin:20px;
+  font-family: Staatliches;
+}
+
+#world {
+  background: #000000;
+  position:absolute;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+
+#health {
+  color: white;
+  background-color: rgba(255,255,255,0);
+  position: relative;
+  float: right;
+  text-align: center;
+  font-size: 50;
+  font-family:Piedra;
+  margin: 25px;
+  padding-left: 10px;
+  padding-right: 100px;
+  display: inline;
+  /* width: 150px;
+  height: 75px; */
+  /* width: 150px;*/
+}
+
+#values{
+  color: white;
+  background-color: rgba(255,255,255,0);
+  position: absolute;
+  display: inline;
+  padding-left: 10px;
+  padding-right: 100px;
+  margin-left: 10px;
+}
+
+#distance {
+  color: white;
+  background-color: rgba(255,255,255,0);
+  font-size: 50;
+  position: absolute;
+	display: inline;
+  margin-top: 25px;
+  margin-left: 25px;
+  font-family: Piedra;
+}
+
+#feet{
+  color: white;
+  background-color: rgba(255,255,255,0);
+  font-size: 50;
+  position: absolute;
+	display: inline;
+	/* padding: 0 0; */
+  margin-left: 10px;
+	/* vertical-align: top; */
+  font-family: Piedra;
+}
+
+.button {
+  width: 220px;
+  font-size: 40px;
+  padding: 10px;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color:#fff;
+  cursor: pointer;
+  margin: 25px;
+  font-family: Staatliches;
+}
+
+.button:hover {
+  background: #ddd;
+  color: black;
+}
