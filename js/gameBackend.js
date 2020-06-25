@@ -24,12 +24,13 @@ function handleKeyPress(e){
       game.clock.start(); //MAYBE
       doFrame();
       console.log(game.studentHealth);
-    } else if (game.status == "over"){
-      waitingScreen.style.display = "none";
-      game.status = "playing";
-      game.clock.start();
     }
-    else if (game.status == "playing" && game.status != "paused"){
+    // else if (game.status == "over"){
+    //   waitingScreen.style.display = "none";
+    //   game.status = "playing";
+    //   game.clock.start();
+    // }
+    else if (game.status == "playing"){
       pauseScreen.style.display = "block";
       buttons.style.display = "block";
       game.status = "paused";
@@ -217,7 +218,7 @@ function updateForFrame() {
        cruiser1.driving = false;
      }
      if (cruiser2.position.z > -6000 && cruiser2.driving == true){
-       cruiser2.position.z-=game.cruiserSpeed/5;
+       cruiser2.position.z-= (game.cruiserSpeed/3);
      }
      if (cruiser2.position.z <= -6000){
        cruiser2.driving = false;
