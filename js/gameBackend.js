@@ -69,6 +69,14 @@ function handleKeyPress(e){
   }
 }
 
+function onWindowResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
+}
+
 function render() {
    renderer.render(scene, camera);
 }
@@ -96,25 +104,6 @@ function updateForFrame() {
      body.left = student.position.x - 23;
      body.right = student.position.x + 23;
      body.bottom = student.position.y - 30;
-
-     if (game.newTime > game.maxDistance){
-       //console.log('PLAYER WON');
-       //display banner
-       //won.position.set(0,60,100);
-       winScreen.style.display = "block";
-       buttons.style.display = "block";
-       game.status = "over";
-     }
-     if (game.studentHealth <= 0){
-       //console.log('PLAYER LOST');
-       //display banner
-       // lost.position.set(0,60,100);
-       cruiser1.position.set(-50,0,-6000);
-       cruiser2.position.set(50,0,-6000);
-       game.status = "over";
-       lossScreen.style.display = "block";
-       buttons.style.display = "block";
-     }
 
      if (game.newTime % 1 == 0 && snowbankHalt == false){
        if(snowbankNum >= game.maxSnowbanks/2){
@@ -334,6 +323,24 @@ function updateForFrame() {
      document.getElementById("values").innerHTML = (game.studentHealth).toString();
      document.getElementById("feet").innerHTML = ((game.distanceRem).toString()).concat("ft");
      //$('#health .values').html(game.studentHealth.toString());
+     if (game.newTime > game.maxDistance){
+       //console.log('PLAYER WON');
+       //display banner
+       //won.position.set(0,60,100);
+       winScreen.style.display = "block";
+       buttons.style.display = "block";
+       game.status = "over";
+     }
+     if (game.studentHealth <= 0){
+       //console.log('PLAYER LOST');
+       //display banner
+       // lost.position.set(0,60,100);
+       cruiser1.position.set(-50,0,-6000);
+       cruiser2.position.set(50,0,-6000);
+       game.status = "over";
+       lossScreen.style.display = "block";
+       buttons.style.display = "block";
+     }
    }
 }
 
@@ -359,7 +366,7 @@ function init() {
    //    "<h3><b>Sorry, WebGL is required but is not available.</b><h3>";
    //    return;
    // }
-
+   window.addEventListener('resize', onWindowResize, false );
    document.addEventListener('keydown', handleKeyPress);
    createScene();
    //render();
