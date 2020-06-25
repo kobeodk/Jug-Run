@@ -50,12 +50,12 @@ body {
 .title{
   color: white;
   font-family:Piedra;
-  font-size: 100;
+  font-size: 15vmin;
 }
 
 .instructions{
   color: white;
-  font-size: 25;
+  font-size: 3vmin;
   margin:20px;
   font-family: Staatliches;
 }
@@ -74,7 +74,7 @@ body {
   position: relative;
   float: right;
   text-align: center;
-  font-size: 50;
+  font-size: 7vmin;
   font-family:Piedra;
   margin: 25px;
   padding-left: 10px;
@@ -98,7 +98,7 @@ body {
 #distance {
   color: white;
   background-color: rgba(255,255,255,0);
-  font-size: 50;
+  font-size: 7vmin;
   position: absolute;
 	display: inline;
   margin-top: 25px;
@@ -109,7 +109,7 @@ body {
 #feet{
   color: white;
   background-color: rgba(255,255,255,0);
-  font-size: 50;
+  font-size: 7vmin;
   position: absolute;
 	display: inline;
 	/* padding: 0 0; */
