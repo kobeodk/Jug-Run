@@ -1,9 +1,4 @@
-
-
-/*  Create the scene graph.  This function is called once, as soon as the page loads.
-*  The renderer has already been created before this function is called.
-*/
-pauseScreen.style.display = "none";
+pauseScreen.style.display = "none"; //Hiding screens and buttons from view.
 lossScreen.style.display = "none";
 waitingScreen.style.display = "none";
 winScreen.style.display = "none";
@@ -12,24 +7,14 @@ buttons.style.display = "none";
 init();
 function handleKeyPress(e){
   e = e.keyCode;
-  if (e == 80){ // p
+  if (e == 80){ // "P" Button is presed
     if (game.status == "menu"){
-      if (startScreen.style.display === "none") {
-        startScreen.style.display = "block";
-      } else {
-        startScreen.style.display = "none";
-      }
+      startScreen.style.display = "none";
       game.status = "playing";
-      // start.position.set(0,60,1000);
-      game.clock.start(); //MAYBE
+      game.clock.start();
       doFrame();
-      console.log(game.studentHealth);
+      // console.log(game.studentHealth);
     }
-    // else if (game.status == "over"){
-    //   waitingScreen.style.display = "none";
-    //   game.status = "playing";
-    //   game.clock.start();
-    // }
     else if (game.status == "playing"){
       pauseScreen.style.display = "block";
       buttons.style.display = "block";
@@ -62,7 +47,7 @@ function handleKeyPress(e){
       }
     }
   }
-  if (e == 38){  //up Arrow
+  if (e == 38){  //up arrow
     if (!body.jumping && game.status != "paused"){
       body.jumping = true;
       heightGoal = 125;
@@ -106,7 +91,9 @@ function updateForFrame() {
      body.right = student.position.x + 23;
      body.bottom = student.position.y - 30;
 
-     if (game.newTime % 1 == 0 && snowbankHalt == false){
+
+     /*Randomly Spawn snowbanks, pizza slices, jackets, and cruisers.*/
+     if (snowbankHalt == false){
        if(snowbankNum >= game.maxSnowbanks/2){
          snowbankNum = 0;
        }
@@ -176,6 +163,8 @@ function updateForFrame() {
          cruiser2.driving = true;
        }
      }
+
+     /*Move objects in the scene towards player.*/
      particles.children.forEach(p => {
        p.position.add(p.velocity)
        if (p.position.y < -2){
@@ -211,6 +200,8 @@ function updateForFrame() {
          student.position.x -= 5;
        }
      }
+
+     /* Continue or stop cruiser movement depending on their location and if they are currently spawned */
      if (cruiser1.position.z < 1000 && cruiser1.driving == true){
        cruiser1.position.z+=game.cruiserSpeed;
      }
@@ -223,6 +214,8 @@ function updateForFrame() {
      if (cruiser2.position.z <= -6000){
        cruiser2.driving = false;
      }
+
+     /* Moving slices, jackets, and snowbanks */
      for (var i = 0; i < game.maxSnowbanks; i++){
        snowbank = snowbanks[i];
        if (snowbank.position.z < 1000){
@@ -246,6 +239,7 @@ function updateForFrame() {
        taylorLake.position.z += 5;
      }
 
+     /* Jumping Animation */
      if (body.jumping){
        if (student.position.y < heightGoal && heightGoal != 30){
          student.position.y +=5;
@@ -258,6 +252,8 @@ function updateForFrame() {
          body.jumping = false;
        }
      }
+
+     /* Checking for collisions */
      if (cruiser1.position.z + cruiser1.length/2 + 48 > 0 && cruiser1.position.z - cruiser1.length/2  + 48< 0){
        if(checkCollision(body.left, body.right, body.bottom, cruiser1)){
          game.studentHealth = 0;
@@ -310,32 +306,19 @@ function updateForFrame() {
        }
      }
 
-     // if (game.newTime >= 0 && leavingJug.position.z < 1000){
-     //   leavingJug.position.z += 15;
-     // }
-     // if (game.newTime >= 25 && halfwayPoint.position.z < 1000){
-     //   halfwayPoint.position.z += 15;
-     // }
-     // if (game.newTime >= 55 && lastSign.position.z < 1000){
-     //   lastSign.position.z += 15;
-     // }
 
      //document.getElementById("scoreValue").innerHTML = game.studentHealth;
      document.getElementById("values").innerHTML = (game.studentHealth).toString();
      document.getElementById("feet").innerHTML = ((game.distanceRem).toString()).concat("ft");
      //$('#health .values').html(game.studentHealth.toString());
+
+     /* Win or lose game */
      if (game.newTime > game.maxDistance){
-       //console.log('PLAYER WON');
-       //display banner
-       //won.position.set(0,60,100);
        winScreen.style.display = "block";
        buttons.style.display = "block";
        game.status = "over";
      }
      if (game.studentHealth <= 0){
-       //console.log('PLAYER LOST');
-       //display banner
-       // lost.position.set(0,60,100);
        cruiser1.position.set(-50,0,-6000);
        cruiser2.position.set(50,0,-6000);
        game.status = "over";
